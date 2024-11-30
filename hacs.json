@@ -4,5 +4,5 @@
     "filename": "mushroom-circle-card.js",
     "content_in_root": true,
     "homeassistant": "2023.11.0",
-    "plugin_type": "lovelace"
+    "plugin_type": "dashboard"
 }
