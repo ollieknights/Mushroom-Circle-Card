@@ -2,6 +2,9 @@ class MushroomCircleCard extends HTMLElement {
     constructor() {
         super();
         this.attachShadow({ mode: 'open' });
+        this._lastKnownState = null;
+        this._lastStateChange = null;
+        this._guessedDuration = null;
     }
 
     static getStubConfig() {
@@ -21,7 +24,8 @@ class MushroomCircleCard extends HTMLElement {
             icon_size: "24px",
             decimal_places: 1,
             fill_container: false,
-            duration: null
+            duration: null,
+            guess_mode: false
         };
     }
 
@@ -51,19 +55,36 @@ class MushroomCircleCard extends HTMLElement {
         return 0;
     }
 
+    _guessTimeRemaining(stateObj) {
+        if (stateObj.attributes.duration) {
+            return this._timeToSeconds(stateObj.attributes.duration);
+        }
+        
+        if (this.config.guess_mode) {
+            if (stateObj.state === 'active' && this._lastKnownState !== 'active') {
+                this._lastStateChange = new Date();
+                this._guessedDuration = this._guessedDuration || 60 * 60;
+            }
+            
+            if (this._lastStateChange) {
+                const elapsed = (new Date() - this._lastStateChange) / 1000;
+                return Math.max(0, this._guessedDuration - elapsed);
+            }
+        }
+        
+        this._lastKnownState = stateObj.state;
+        return 0;
+    }
+
     _computeDuration(config, stateObj) {
-        // Direct number value
         if (typeof config.duration === 'number') return config.duration;
 
-        // Check duration configuration
         if (config.duration) {
-            // From attribute of current entity
             if (config.duration.attribute) {
                 const value = stateObj.attributes[config.duration.attribute];
                 return this._parseDurationValue(value, config.duration.units);
             }
 
-            // From another entity
             if (config.duration.entity) {
                 const durationEntity = this._hass.states[config.duration.entity];
                 if (!durationEntity) return 100;
@@ -76,7 +97,6 @@ class MushroomCircleCard extends HTMLElement {
             }
         }
 
-        // Default value if no duration specified
         return 100;
     }
 
@@ -96,19 +116,16 @@ class MushroomCircleCard extends HTMLElement {
     }
 
     _formatState(stateObj) {
-        // Timer handling
         if (stateObj.entity_id.includes('timer')) {
             return stateObj.attributes.remaining || "0:00:00";
         }
 
-        // Percentage handling
         if (stateObj.attributes.unit_of_measurement === '%' || 
             stateObj.entity_id.includes('battery')) {
             const value = parseFloat(stateObj.state);
             return !isNaN(value) ? `${Math.round(value)}%` : stateObj.state;
         }
 
-        // Decimal number handling
         const value = parseFloat(stateObj.state);
         if (!isNaN(value)) {
             const decimals = this.config.decimal_places || 1;
@@ -122,19 +139,23 @@ class MushroomCircleCard extends HTMLElement {
         const value = parseFloat(stateObj.state);
         const duration = this._computeDuration(this.config, stateObj);
 
-        // For timer entities
         if (stateObj.entity_id.includes('timer')) {
-            const remaining = this._timeToSeconds(stateObj.attributes.remaining);
-            const totalDuration = this._timeToSeconds(stateObj.attributes.duration);
-            return totalDuration ? (remaining / totalDuration) * 100 : 0;
+            let remaining, duration;
+            
+            if (this.config.guess_mode) {
+                remaining = this._guessTimeRemaining(stateObj);
+                duration = this._guessedDuration || remaining;
+            } else {
+                remaining = this._timeToSeconds(stateObj.attributes.remaining);
+                duration = this._timeToSeconds(stateObj.attributes.duration);
+            }
+            return duration ? (remaining / duration) * 100 : 0;
         }
 
-        // For entities with duration
         if (this.config.duration) {
             return (value / duration) * 100;
         }
 
-        // Default percentage handling
         return isNaN(value) ? 0 : Math.min(Math.max(value, 0), 100);
     }
 
