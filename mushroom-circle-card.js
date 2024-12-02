@@ -77,23 +77,11 @@ class MushroomCircleCard extends HTMLElement {
     }
 
     _guessTimeRemaining(stateObj) {
-        if (stateObj.attributes.duration) {
-            return this._timeToSeconds(stateObj.attributes.duration);
+        if (stateObj.attributes.finishes_at) {
+            const finishTime = new Date(stateObj.attributes.finishes_at);
+            const now = new Date();
+            return Math.max(0, (finishTime - now) / 1000);
         }
-        
-        if (this.config.guess_mode) {
-            if (stateObj.state === 'active' && this._lastKnownState !== 'active') {
-                this._lastStateChange = new Date();
-                this._guessedDuration = this._guessedDuration || 60 * 60;
-            }
-            
-            if (this._lastStateChange) {
-                const elapsed = (new Date() - this._lastStateChange) / 1000;
-                return Math.max(0, this._guessedDuration - elapsed);
-            }
-        }
-        
-        this._lastKnownState = stateObj.state;
         return 0;
     }
 
@@ -136,16 +124,15 @@ class MushroomCircleCard extends HTMLElement {
         }
     }
 
-_formatState(stateObj) {
-    if (stateObj.entity_id.includes('timer')) {
-        if (this.config.guess_mode && stateObj.state === 'active' && stateObj.attributes.finishes_at) {
-            const finishTime = new Date(stateObj.attributes.finishes_at);
-            const now = new Date();
-            const remaining = Math.max(0, (finishTime - now) / 1000);
-            return this._formatTime(remaining);
-        }
-        return stateObj.attributes.remaining || "0:00:00";
-    }
+    _formatState(stateObj) {
+        if (stateObj.entity_id.includes('timer')) {
+            if (this.config.guess_mode && stateObj.state === 'active' && stateObj.attributes.finishes_at) {
+                const finishTime = new Date(stateObj.attributes.finishes_at);
+                const now = new Date();
+                const remaining = Math.max(0, (finishTime - now) / 1000);
+                return this._formatTime(remaining);
+            }
+            return stateObj.attributes.remaining || "0:00:00";
         }
 
         if (stateObj.attributes.unit_of_measurement === '%' || 
@@ -163,25 +150,20 @@ _formatState(stateObj) {
         return stateObj.state;
     }
 
-_computeValue(stateObj) {
-    if (stateObj.entity_id.includes('timer')) {
-        let remaining, duration;
-        
-        if (this.config.guess_mode && stateObj.state === 'active' && stateObj.attributes.finishes_at) {
-            const finishTime = new Date(stateObj.attributes.finishes_at);
-            const now = new Date();
-            remaining = Math.max(0, (finishTime - now) / 1000);
-            duration = this._timeToSeconds(stateObj.attributes.duration);
-        } else {
-            remaining = this._timeToSeconds(stateObj.attributes.remaining);
-            duration = this._timeToSeconds(stateObj.attributes.duration);
-        }
-        
-        return duration ? ((duration - remaining) / duration) * 100 : 0;
-    }
+    _computeValue(stateObj) {
+        if (stateObj.entity_id.includes('timer')) {
+            let remaining, duration;
+            
+            if (this.config.guess_mode && stateObj.state === 'active' && stateObj.attributes.finishes_at) {
+                const finishTime = new Date(stateObj.attributes.finishes_at);
+                const now = new Date();
+                remaining = Math.max(0, (finishTime - now) / 1000);
+                duration = this._timeToSeconds(stateObj.attributes.duration);
+            } else {
+                remaining = this._timeToSeconds(stateObj.attributes.remaining);
+                duration = this._timeToSeconds(stateObj.attributes.duration);
             }
             
-            this._lastKnownState = stateObj.state;
             return duration ? ((duration - remaining) / duration) * 100 : 0;
         }
         
@@ -390,3 +372,13 @@ _computeValue(stateObj) {
             </ha-card>
         `;
     }
+}
+
+customElements.define("mushroom-circle-card", MushroomCircleCard);
+
+window.customCards = window.customCards || [];
+window.customCards.push({
+    type: "mushroom-circle-card",
+    name: "Mushroom Circle Card", 
+    description: "A circular progress card with Mushroom styling"
+});
