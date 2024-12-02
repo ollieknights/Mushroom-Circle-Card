@@ -136,26 +136,33 @@ class MushroomCircleCard extends HTMLElement {
     }
 
     _computeValue(stateObj) {
+        if (stateObj.entity_id.includes('timer')) {
+            let remaining = this._timeToSeconds(stateObj.attributes.remaining);
+            let duration = this._timeToSeconds(stateObj.attributes.duration);
+            
+            if (this.config.guess_mode && stateObj.state === 'active') {
+                if (this._lastKnownState !== 'active') {
+                    this._lastStateChange = new Date();
+                    this._guessedDuration = duration;
+                }
+                if (this._lastStateChange && this._guessedDuration) {
+                    const elapsed = (new Date() - this._lastStateChange) / 1000;
+                    remaining = Math.max(0, this._guessedDuration - elapsed);
+                    duration = this._guessedDuration;
+                }
+            }
+            
+            this._lastKnownState = stateObj.state;
+            return duration ? ((duration - remaining) / duration) * 100 : 0;
+        }
+        
         const value = parseFloat(stateObj.state);
         const duration = this._computeDuration(this.config, stateObj);
-
-        if (stateObj.entity_id.includes('timer')) {
-            let remaining, duration;
-            
-            if (this.config.guess_mode) {
-                remaining = this._guessTimeRemaining(stateObj);
-                duration = this._guessedDuration || remaining;
-            } else {
-                remaining = this._timeToSeconds(stateObj.attributes.remaining);
-                duration = this._timeToSeconds(stateObj.attributes.duration);
-            }
-            return duration ? (remaining / duration) * 100 : 0;
-        }
-
+        
         if (this.config.duration) {
             return (value / duration) * 100;
         }
-
+        
         return isNaN(value) ? 0 : Math.min(Math.max(value, 0), 100);
     }
 
