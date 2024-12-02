@@ -5,6 +5,20 @@ class MushroomCircleCard extends HTMLElement {
         this._lastKnownState = null;
         this._lastStateChange = null;
         this._guessedDuration = null;
+        this._updateTimer = null;
+    }
+
+    connectedCallback() {
+        this._updateTimer = setInterval(() => {
+            if (this._hass) this.render();
+        }, 1000);
+    }
+
+    disconnectedCallback() {
+        if (this._updateTimer) {
+            clearInterval(this._updateTimer);
+            this._updateTimer = null;
+        }
     }
 
     static getStubConfig() {
@@ -53,6 +67,13 @@ class MushroomCircleCard extends HTMLElement {
             return (parseInt(hours) * 3600) + (parseInt(minutes) * 60) + parseInt(seconds);
         }
         return 0;
+    }
+
+    _formatTime(seconds) {
+        const h = Math.floor(seconds / 3600);
+        const m = Math.floor((seconds % 3600) / 60);
+        const s = Math.floor(seconds % 60);
+        return `${h}:${m.toString().padStart(2,'0')}:${s.toString().padStart(2,'0')}`;
     }
 
     _guessTimeRemaining(stateObj) {
@@ -117,6 +138,13 @@ class MushroomCircleCard extends HTMLElement {
 
     _formatState(stateObj) {
         if (stateObj.entity_id.includes('timer')) {
+            if (this.config.guess_mode && stateObj.state === 'active') {
+                if (this._lastStateChange && this._guessedDuration) {
+                    const elapsed = (new Date() - this._lastStateChange) / 1000;
+                    const remaining = Math.max(0, this._guessedDuration - elapsed);
+                    return this._formatTime(remaining);
+                }
+            }
             return stateObj.attributes.remaining || "0:00:00";
         }
 
@@ -238,7 +266,7 @@ class MushroomCircleCard extends HTMLElement {
         const progress = value / 100;
         const isClockwise = this.config.direction === "clockwise";
         const strokeDashoffset = circumference * (1 - progress);
-        const color = this._computeColor(value);
+        const color = this.config.stroke_color || this._computeColor(value);
         const name = this.config.name || stateObj.attributes.friendly_name || this.config.entity;
 
         this.shadowRoot.innerHTML = `
@@ -361,13 +389,3 @@ class MushroomCircleCard extends HTMLElement {
             </ha-card>
         `;
     }
-}
-
-customElements.define("mushroom-circle-card", MushroomCircleCard);
-
-window.customCards = window.customCards || [];
-window.customCards.push({
-    type: "mushroom-circle-card",
-    name: "Mushroom Circle Card",
-    description: "A circular progress card with Mushroom styling"
-});
