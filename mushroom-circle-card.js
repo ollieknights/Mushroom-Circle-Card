@@ -136,16 +136,16 @@ class MushroomCircleCard extends HTMLElement {
         }
     }
 
-    _formatState(stateObj) {
-        if (stateObj.entity_id.includes('timer')) {
-            if (this.config.guess_mode && stateObj.state === 'active') {
-                if (this._lastStateChange && this._guessedDuration) {
-                    const elapsed = (new Date() - this._lastStateChange) / 1000;
-                    const remaining = Math.max(0, this._guessedDuration - elapsed);
-                    return this._formatTime(remaining);
-                }
-            }
-            return stateObj.attributes.remaining || "0:00:00";
+_formatState(stateObj) {
+    if (stateObj.entity_id.includes('timer')) {
+        if (this.config.guess_mode && stateObj.state === 'active' && stateObj.attributes.finishes_at) {
+            const finishTime = new Date(stateObj.attributes.finishes_at);
+            const now = new Date();
+            const remaining = Math.max(0, (finishTime - now) / 1000);
+            return this._formatTime(remaining);
+        }
+        return stateObj.attributes.remaining || "0:00:00";
+    }
         }
 
         if (stateObj.attributes.unit_of_measurement === '%' || 
@@ -163,21 +163,22 @@ class MushroomCircleCard extends HTMLElement {
         return stateObj.state;
     }
 
-    _computeValue(stateObj) {
-        if (stateObj.entity_id.includes('timer')) {
-            let remaining = this._timeToSeconds(stateObj.attributes.remaining);
-            let duration = this._timeToSeconds(stateObj.attributes.duration);
-            
-            if (this.config.guess_mode && stateObj.state === 'active') {
-                if (this._lastKnownState !== 'active') {
-                    this._lastStateChange = new Date();
-                    this._guessedDuration = duration;
-                }
-                if (this._lastStateChange && this._guessedDuration) {
-                    const elapsed = (new Date() - this._lastStateChange) / 1000;
-                    remaining = Math.max(0, this._guessedDuration - elapsed);
-                    duration = this._guessedDuration;
-                }
+_computeValue(stateObj) {
+    if (stateObj.entity_id.includes('timer')) {
+        let remaining, duration;
+        
+        if (this.config.guess_mode && stateObj.state === 'active' && stateObj.attributes.finishes_at) {
+            const finishTime = new Date(stateObj.attributes.finishes_at);
+            const now = new Date();
+            remaining = Math.max(0, (finishTime - now) / 1000);
+            duration = this._timeToSeconds(stateObj.attributes.duration);
+        } else {
+            remaining = this._timeToSeconds(stateObj.attributes.remaining);
+            duration = this._timeToSeconds(stateObj.attributes.duration);
+        }
+        
+        return duration ? ((duration - remaining) / duration) * 100 : 0;
+    }
             }
             
             this._lastKnownState = stateObj.state;
