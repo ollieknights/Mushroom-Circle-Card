@@ -19,7 +19,9 @@ class MushroomCircleCard extends HTMLElement {
             display_mode: "both",
             ring_color: "",
             icon_size: "24px",
-            decimal_places: 1
+            decimal_places: 1,
+            fill_container: false,
+            duration: null
         };
     }
 
@@ -38,15 +40,63 @@ class MushroomCircleCard extends HTMLElement {
         this.render();
     }
 
-    // Convert HH:MM:SS to seconds
     _timeToSeconds(timeString) {
         if (!timeString) return 0;
-        const [hours, minutes, seconds] = timeString.split(':').map(Number);
-        return (hours * 3600) + (minutes * 60) + (seconds || 0);
+        if (typeof timeString === 'number') return timeString;
+        const matches = timeString.match(/^(\d+):(\d{2}):(\d{2})/);
+        if (matches) {
+            const [_, hours, minutes, seconds] = matches;
+            return (parseInt(hours) * 3600) + (parseInt(minutes) * 60) + parseInt(seconds);
+        }
+        return 0;
+    }
+
+    _computeDuration(config, stateObj) {
+        // Direct number value
+        if (typeof config.duration === 'number') return config.duration;
+
+        // Check duration configuration
+        if (config.duration) {
+            // From attribute of current entity
+            if (config.duration.attribute) {
+                const value = stateObj.attributes[config.duration.attribute];
+                return this._parseDurationValue(value, config.duration.units);
+            }
+
+            // From another entity
+            if (config.duration.entity) {
+                const durationEntity = this._hass.states[config.duration.entity];
+                if (!durationEntity) return 100;
+                
+                const value = config.duration.attribute ? 
+                    durationEntity.attributes[config.duration.attribute] : 
+                    durationEntity.state;
+                    
+                return this._parseDurationValue(value, config.duration.units);
+            }
+        }
+
+        // Default value if no duration specified
+        return 100;
+    }
+
+    _parseDurationValue(value, units = 'duration') {
+        switch(units) {
+            case 'seconds':
+                return parseFloat(value);
+            case 'minutes':
+                return parseFloat(value) * 60;
+            case 'hours':
+                return parseFloat(value) * 3600;
+            case 'duration':
+                return this._timeToSeconds(value);
+            default:
+                return parseFloat(value);
+        }
     }
 
     _formatState(stateObj) {
-        // Timer handling with string format HH:MM:SS
+        // Timer handling
         if (stateObj.entity_id.includes('timer')) {
             return stateObj.attributes.remaining || "0:00:00";
         }
@@ -69,28 +119,33 @@ class MushroomCircleCard extends HTMLElement {
     }
 
     _computeValue(stateObj) {
-        // Timer progress
+        const value = parseFloat(stateObj.state);
+        const duration = this._computeDuration(this.config, stateObj);
+
+        // For timer entities
         if (stateObj.entity_id.includes('timer')) {
-            const duration = this._timeToSeconds(stateObj.attributes.duration);
             const remaining = this._timeToSeconds(stateObj.attributes.remaining);
-            if (duration === 0) return 0;
-            return (remaining / duration) * 100;
+            const totalDuration = this._timeToSeconds(stateObj.attributes.duration);
+            return totalDuration ? (remaining / totalDuration) * 100 : 0;
         }
 
-        // Regular value handling
-        const value = parseFloat(stateObj.state);
+        // For entities with duration
+        if (this.config.duration) {
+            return (value / duration) * 100;
+        }
+
+        // Default percentage handling
         return isNaN(value) ? 0 : Math.min(Math.max(value, 0), 100);
     }
 
     _computeColor(value) {
         if (this.config.ring_color) {
-            if (this.config.ring_color.startsWith('var(')) {
-                return this.config.ring_color;
-            }
             try {
-                return Function('value', `return ${this.config.ring_color}`)(value);
+                return Function('states', 'value', 
+                    `return ${this.config.ring_color}`
+                )(this._hass.states, value);
             } catch (e) {
-                console.error('Ring color error:', e);
+                return 'var(--primary-color)';
             }
         }
         
@@ -148,15 +203,13 @@ class MushroomCircleCard extends HTMLElement {
         }
 
         const value = this._computeValue(stateObj);
-        const size = this.config.size || 150;
+        const baseSize = this.config.size || 150;
         const strokeWidth = this.config.stroke_width || 8;
-        const radius = (size / 2) - (strokeWidth * 1.5);
+        const radius = (baseSize / 2) - (strokeWidth * 1.5);
         const circumference = 2 * Math.PI * radius;
         const progress = value / 100;
         const isClockwise = this.config.direction === "clockwise";
-        const strokeDashoffset = isClockwise ? 
-            circumference * (1 - progress) : 
-            -circumference * progress;
+        const strokeDashoffset = circumference * (1 - progress);
         const color = this._computeColor(value);
         const name = this.config.name || stateObj.attributes.friendly_name || this.config.entity;
 
@@ -166,6 +219,7 @@ class MushroomCircleCard extends HTMLElement {
                     ha-card {
                         height: 100%;
                         padding: 16px;
+                        box-sizing: border-box;
                     }
                     .container {
                         position: relative;
@@ -176,10 +230,13 @@ class MushroomCircleCard extends HTMLElement {
                     }
                     .circle-container {
                         position: relative;
-                        width: ${size}px;
-                        height: ${size}px;
+                        width: ${this.config.fill_container ? '100%' : `${baseSize}px`};
+                        height: auto;
+                        aspect-ratio: 1;
                     }
                     svg {
+                        width: 100%;
+                        height: 100%;
                         transform: rotate(${isClockwise ? '-90' : '90'}deg);
                     }
                     circle, .tick {
@@ -218,10 +275,11 @@ class MushroomCircleCard extends HTMLElement {
                         gap: 4px;
                     }
                     ha-icon {
-                        width: ${this.config.icon_size};
-                        height: ${this.config.icon_size};
+                        width: ${this.config.icon_size || '24px'};
+                        height: ${this.config.icon_size || '24px'};
                         color: ${color};
                         display: flex;
+                        --mdc-icon-size: ${this.config.icon_size || '24px'};
                     }
                     .state {
                         font-size: ${this.config.display_mode === "both" ? "14px" : "22px"};
@@ -237,24 +295,24 @@ class MushroomCircleCard extends HTMLElement {
 
                 <div class="container">
                     <div class="circle-container">
-                        <svg width="${size}" height="${size}" viewBox="0 0 ${size} ${size}">
+                        <svg viewBox="0 0 ${baseSize} ${baseSize}">
                             <circle
                                 class="background"
-                                cx="${size/2}"
-                                cy="${size/2}"
+                                cx="${baseSize/2}"
+                                cy="${baseSize/2}"
                                 r="${radius}"
                             />
 
-                            ${this._generateTicks(radius, size)}
+                            ${this._generateTicks(radius, baseSize)}
 
                             <circle
                                 class="progress"
-                                cx="${size/2}"
-                                cy="${size/2}"
+                                cx="${baseSize/2}"
+                                cy="${baseSize/2}"
                                 r="${radius}"
                                 stroke-dasharray="${circumference}"
                                 stroke-dashoffset="${strokeDashoffset}"
-                                transform="${isClockwise ? `scale(1,-1) translate(0,-${size})` : ''}"
+                                transform="${isClockwise ? `scale(1,-1) translate(0,-${baseSize})` : ''}"
                             />
                         </svg>
 
