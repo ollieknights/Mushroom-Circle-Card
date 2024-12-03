@@ -89,23 +89,22 @@ if (!customElements.get("mushroom-circle-card")) {
         }
 
         _computeValue(stateObj) {
+            // Handle timer
             if (this.config.display_mode === 'time' && stateObj.entity_id.includes('timer')) {
                 const remaining = this._computeRemainingTime(stateObj);
                 const duration = this._timeToSeconds(stateObj.attributes.duration);
                 return duration ? ((duration - remaining) / duration) * 100 : 0;
             }
 
+            // Handle percentage and value modes
             const numericValue = parseFloat(stateObj.state);
             if (!isNaN(numericValue)) {
-                switch(this.config.display_mode) {
-                    case 'value':
-                        const maxValue = this.config.max_value || 100;
-                        return (numericValue / maxValue) * 100;
-                    case 'percentage':
-                        return numericValue;
-                    default:
-                        return numericValue;
+                if (this.config.display_mode === 'value') {
+                    const maxValue = parseFloat(this.config.max_value) || 100;
+                    return Math.min(100, (numericValue / maxValue) * 100);
                 }
+                // For percentage mode, clamp value between 0 and 100
+                return Math.min(100, Math.max(0, numericValue));
             }
             return 0;
         }
@@ -131,23 +130,14 @@ if (!customElements.get("mushroom-circle-card")) {
         _computeColor(stateObj, value) {
             if (this.config.ring_color) {
                 try {
-                    const remaining = this._computeRemainingTime(stateObj);
-                    const percentage = value;
                     const state = parseFloat(stateObj.state);
-                    const duration = this._timeToSeconds(stateObj.attributes.duration);
-                    
-                    return Function('remaining', 'percentage', 'value', 'state', 
-                        `return ${this.config.ring_color}`
-                    )(remaining, percentage, state, state);
+                    return Function('value', 'state', `return ${this.config.ring_color}`)(value, state);
                 } catch (e) {
                     console.error('Error computing color:', e);
                     return 'var(--primary-color)';
                 }
             }
-
-            if (value <= 20) return 'var(--error-color)';
-            if (value <= 50) return 'var(--warning-color)';
-            return 'var(--success-color)';
+            return 'var(--primary-color)';
         }
 
         _formatState(stateObj) {
