@@ -52,14 +52,34 @@ class MushroomCircleCard extends HTMLElement {
     }
 
     setConfig(config) {
-        if (!config.entity) {
-            throw new Error("Please define an entity");
-        }
-        this.config = {
-            ...MushroomCircleCard.getStubConfig(),
-            ...config
-        };
+    if (!config.entity) {
+        throw new Error("Please define an entity");
     }
+    this.config = {
+        type: "custom:mushroom-circle-card",
+        entity: "",
+        name: "",
+        icon: "mdi:circle",
+        show_ticks: false,
+        tick_position: "inside",
+        direction: "clockwise",
+        stroke_width: 8,
+        hide_name: false,
+        display_mode: "percentage",
+        max_value: 100,
+        icon_size: "24px",
+        layout: {
+            width: 1,
+            height: 1
+        },
+        fill_container: false,
+        primary_info: "state",
+        secondary_info: "name",
+        duration: null,
+        guess_mode: false,
+        ...config
+    };
+}
 
     set hass(hass) {
         this._hass = hass;
