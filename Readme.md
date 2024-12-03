@@ -1,141 +1,112 @@
-# Mushroom Circle Card
+```markdown
+# Mushroom Circle Timer Card
 
-A customizable circular progress card for Home Assistant with Mushroom Card styling. Perfect for displaying battery levels, timers, sensors, and more.
+A customizable circular progress card with Mushroom design compatibility for Home Assistant.
 
-[![hacs_badge](https://img.shields.io/badge/HACS-Custom-orange.svg)](https://github.com/custom-components/hacs)
-
-<p align="center">
-  <img src="https://raw.githubusercontent.com/ollieknights/mushroom-circle-card/main/examples/preview.png" alt="Mushroom Circle Card Preview">
-</p>
+<img src="example.png" alt="Example" width="300" />
 
 ## Features
-- Circular progress indicator
-- Optional tick marks
-- Optional glowing ring effect
-- Conditional status badge
-- Progress end marker
-- Mushroom card styling
-- Light/Dark theme support
-- Value-based color changes
-
-## Prerequisites
-- Home Assistant 2023.11.0 or newer
-- [Mushroom Cards](https://github.com/piitaya/lovelace-mushroom) installed
-- [HACS](https://hacs.xyz/) installed
+- Progress indicator starting at 12 o'clock
+- Clockwise and counter-clockwise options 
+- Color conditions based on time/percentage
+- Compatible with grid layout
+- Customizable tick marks
+- Timer countdown display
+- Theme-aware styling
 
 ## Installation
-
-1. Add this repository to HACS:
-    - Go to HACS > Frontend
-    - Click the menu (⋮) > Custom repositories
-    - Add URL: `https://github.com/ollieknights/mushroom-circle-card`
-    - Category: Lovelace
-2. Install "Mushroom Circle Card" from HACS
-3. Refresh your browser
-
-## Usage Examples
-
-### Battery Level
+1. Install via HACS custom repository
+2. Add reference to dashboards configuration:
 ```yaml
-type: custom:mushroom-circle-card
-entity: sensor.phone_battery
-icon: mdi:battery
-show_ticks: false
-show_glow: true
-icon_size: large
-icon_color: >
-  [[[
-    if (state < 20) return 'rgb(var(--rgb-state-error))';
-    if (state < 50) return 'rgb(var(--rgb-state-warning))';
-    return 'rgb(var(--rgb-state-success))';
-  ]]]
-show_badge: true
-badge_icon: mdi:lightning-bolt
-badge_color: 'rgb(var(--rgb-state-success))'
-badge_condition: "state == 'charging'"
-```
-
-### Timer
-```yaml
-type: custom:mushroom-circle-card
-entity: timer.laundry
-icon: mdi:washing-machine
-show_ticks: true
-show_glow: false
-icon_color: 'rgb(var(--rgb-state-entity))'
-show_badge: true
-badge_icon: mdi:pause
-badge_condition: "state == 'active'"
-```
-
-### CPU Temperature
-```yaml
-type: custom:mushroom-circle-card
-entity: sensor.cpu_temperature
-icon: mdi:cpu
-show_ticks: false
-show_glow: true
-icon_size: large
-icon_color: >
-  [[[
-    if (state > 80) return 'rgb(var(--rgb-state-error))';
-    if (state > 60) return 'rgb(var(--rgb-state-warning))';
-    return 'rgb(var(--rgb-state-success))';
-  ]]]
-show_badge: true
-badge_icon: mdi:alert
-badge_color: 'rgb(var(--rgb-state-error))'
-badge_condition: "state > 80"
-```
-
-### Storage Space
-```yaml
-type: custom:mushroom-circle-card
-entity: sensor.disk_use_percent
-icon: mdi:harddisk
-show_ticks: true
-show_glow: true
-icon_color: >
-  [[[
-    if (state > 90) return 'rgb(var(--rgb-state-error))';
-    if (state > 75) return 'rgb(var(--rgb-state-warning))';
-    return 'rgb(var(--rgb-state-success))';
-  ]]]
+resources:
+  - url: /hacsfiles/mushroom-circle-card/mushroom-circle-card.js
+    type: module
 ```
 
 ## Configuration Options
+| Option | Type | Default | Description |
+|--|--|--|--|
+| type | string | required | `custom:mushroom-circle-card` |
+| entity | string | required | Entity ID |
+| name | string | Entity name | Card name |
+| icon | string | `mdi:circle` | Icon to display |
+| show_ticks | boolean | `false` | Show tick marks |
+| tick_position | string | `inside` | `inside` or `outside` |
+| direction | string | `counter-clockwise` | `clockwise` or `counter-clockwise` |
+| stroke_width | number | `8` | Width of progress ring |
+| hide_name | boolean | `false` | Hide entity name |
+| display_mode | string | `both` | `both`, `icon`, or `state` |
+| icon_size | string | `24px` | Size of icon |
+| layout | object | `{}` | Layout configuration |
+| layout.width | number | `1` | Width in grid units (50px) |
+| layout.height | number | `1` | Height in grid units (50px) |
+| guess_mode | boolean | `false` | Use countdown estimation |
+| ring_color | string | - | Conditional color expression |
 
-| Name | Type | Default | Description |
-|------|------|---------|-------------|
-| entity | string | Required | Entity ID |
-| icon | string | mdi:circle | MDI icon to display |
-| icon_size | string | default | Icon size: 'small', 'default', 'large', 'custom' |
-| icon_custom_size | string | 24px | Custom icon size when icon_size is 'custom' |
-| icon_color | string | auto | Icon color (supports HA color variables) |
-| show_ticks | boolean | false | Show tick marks around circle |
-| show_glow | boolean | false | Enable glowing effect on progress ring |
-| show_badge | boolean | false | Show status badge |
-| badge_icon | string | - | MDI icon for badge |
-| badge_color | string | - | Badge background color |
-| badge_condition | string | - | Condition for showing badge |
-| layout | string | vertical | Card layout: 'vertical' or 'horizontal' |
-| fill_container | boolean | false | Make card fill container width |
-| hide_name | boolean | false | Hide the entity name |
+## Usage Examples
 
-## Theme Variables
-The card respects the following Home Assistant theme variables:
-- `--rgb-state-entity`
-- `--rgb-state-error`
-- `--rgb-state-warning`
-- `--rgb-state-success`
-- All Mushroom card variables
+### Basic Timer
+```yaml
+type: custom:mushroom-circle-card
+entity: timer.thermostat_boost
+icon: phu:hive
+direction: counter-clockwise
+guess_mode: true
+```
 
-## Contributing
-Feel free to submit issues and pull requests.
+### Styled Timer with Color Conditions
+```yaml
+type: custom:mushroom-circle-card
+entity: timer.thermostat_boost
+icon: phu:hive
+show_ticks: true
+tick_position: outside
+direction: counter-clockwise
+guess_mode: true
+layout:
+  width: 4
+  height: 4
+ring_color: >
+  remaining <= (3 * 60) ? 'red' :     # Last 3 minutes
+  remaining <= (5 * 60) ? 'orange' :   # Last 5 minutes
+  remaining <= (10 * 60) ? 'yellow' :  # Last 10 minutes
+  'green'
+stroke_width: 8
+```
 
-## License
-This project is under the MIT License. See the LICENSE file for details.
+### Battery Level Display
+```yaml
+type: custom:mushroom-circle-card
+entity: sensor.battery_level
+icon: mdi:battery
+direction: clockwise
+show_ticks: true
+ring_color: >
+  percentage <= 20 ? 'red' :
+  percentage <= 50 ? 'orange' : 
+  'green'
+```
 
-## Credits
-- Inspired by [Mushroom Cards](https://github.com/piitaya/lovelace-mushroom)
-- Built for Home Assistant
+### Grid Layout with Custom Size
+```yaml
+type: custom:mushroom-circle-card
+entity: timer.washer
+icon: mdi:washing-machine
+direction: clockwise
+layout:
+  width: 2
+  height: 2
+show_ticks: true
+tick_position: outside
+```
+
+## Conditions
+Color conditions can be based on:
+- `remaining`: Time in seconds
+- `percentage`: Progress percentage
+- `value`: Raw entity value
+- `state`: Entity state
+
+## Support
+Open an issue on GitHub for support.
+```
