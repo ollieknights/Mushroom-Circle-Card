@@ -1,13 +1,8 @@
 /*
-Mushroom Circle Card v1.0.16
-A circular progress card with Mushroom styling for Home Assistant
-Features:
-- Timer display with countdown
-- Configurable rotation direction
-- Theme-aware styling
-- Responsive layout
-- Tick marks support
-- Layout grid compatibility
+Mushroom Circle Card v1.0.17
+- Fixed clockwise/counter-clockwise rotation (both start at 12 o'clock)
+- Added layout width/height support
+- Fixed timer progress tracking
 */
 
 class MushroomCircleCard extends HTMLElement {
@@ -34,7 +29,7 @@ class MushroomCircleCard extends HTMLElement {
     }
 
     getCardSize() {
-        return 1;
+        return this.config?.layout?.height || 1;
     }
 
     static getStubConfig() {
@@ -108,13 +103,10 @@ class MushroomCircleCard extends HTMLElement {
         if (stateObj.entity_id.includes('timer')) {
             const remaining = this._computeRemainingTime(stateObj);
             const duration = this._timeToSeconds(stateObj.attributes.duration);
-            
             const progress = duration ? ((duration - remaining) / duration) * 100 : 0;
-            return this.config.direction === "clockwise" ? progress : 100 - progress;
+            return progress;
         }
-
-        const value = parseFloat(stateObj.state);
-        return isNaN(value) ? 0 : Math.min(Math.max(value, 0), 100);
+        return 0;
     }
 
     _computeColor(stateObj, value) {
@@ -216,7 +208,6 @@ class MushroomCircleCard extends HTMLElement {
                 <style>
                     ha-card {
                         box-sizing: border-box;
-                        height: 100%;
                         padding: var(--spacing);
                         display: flex;
                         flex-direction: column;
@@ -224,7 +215,8 @@ class MushroomCircleCard extends HTMLElement {
                         background: var(--ha-card-background, var(--card-background-color, white));
                         border-radius: var(--ha-card-border-radius, 12px);
                         box-shadow: var(--ha-card-box-shadow, none);
-                        width: ${this.config?.layout?.width ? '100%' : 'auto'};
+                        width: ${this.config?.layout?.width ? this.config.layout.width * 50 + 'px' : 'auto'};
+                        height: ${this.config?.layout?.height ? this.config.layout.height * 50 + 'px' : 'auto'};
                     }
                     .container {
                         display: flex;
@@ -232,7 +224,7 @@ class MushroomCircleCard extends HTMLElement {
                         align-items: center;
                         justify-content: center;
                         width: 100%;
-                        height: ${this.config?.layout?.height ? '100%' : 'auto'};
+                        height: 100%;
                         min-height: 100px;
                     }
                     .circle-container {
@@ -248,7 +240,7 @@ class MushroomCircleCard extends HTMLElement {
                     svg {
                         width: 100%;
                         height: 100%;
-                        transform: rotate(-90deg);
+                        transform: rotate(-90deg) ${this.config.direction === "counter-clockwise" ? 'scale(-1, 1)' : ''};
                     }
                     circle, .tick {
                         fill: none;
@@ -319,7 +311,6 @@ class MushroomCircleCard extends HTMLElement {
                                 r="${radius}"
                                 stroke-dasharray="${circumference}"
                                 stroke-dashoffset="${strokeDashoffset}"
-                                transform="${this.config.direction === "counter-clockwise" ? 'scale(-1, 1) translate(-100, 0)' : ''}"
                             />
                         </svg>
                         <div class="content">
