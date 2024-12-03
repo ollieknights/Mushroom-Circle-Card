@@ -1,4 +1,3 @@
-
 if (!customElements.get("mushroom-circle-card")) {
     class MushroomCircleCard extends HTMLElement {
         constructor() {
@@ -117,7 +116,7 @@ if (!customElements.get("mushroom-circle-card")) {
                 : `M 0,-${radius} A ${radius},${radius} 0 ${largeArcFlag},0 ${-x},${y}`;
         }
 
-        _computeColor(stateObj, value) {
+        _computeColor(stateObj) {
             if (this.config.ring_color) {
                 try {
                     const remaining = this._computeRemainingTime(stateObj);
@@ -206,41 +205,44 @@ if (!customElements.get("mushroom-circle-card")) {
             const strokeWidth = this.config.stroke_width || 8;
             const radius = 35 - (strokeWidth / 2);
             const progressPath = this._computeProgressPath(radius, value, this.config.direction);
-            const color = this._computeColor(stateObj, value);
+            const color = this._computeColor(stateObj);
             const name = this.config.name || stateObj.attributes.friendly_name || this.config.entity;
 
             this.shadowRoot.innerHTML = `
                 <ha-card>
                     <style>
-                        :host {
-                            --circle-size: ${Math.min(this.config?.layout?.width || 1, this.config?.layout?.height || 1) * 50}px;
-                        }
                         ha-card {
-                            padding: 8px;
-                            width: ${this.config?.layout?.width ? this.config.layout.width * 50 + 'px' : '100px'};
-                            height: ${this.config?.layout?.height ? this.config.layout.height * 50 + 'px' : '100px'};
+                            box-sizing: border-box;
+                            height: 100%;
+                            width: 100%;
+                            padding: 0;
+                            position: relative;
                             display: flex;
                             align-items: center;
                             justify-content: center;
                         }
                         .container {
-                            width: calc(100% - 16px);
-                            height: calc(100% - 16px);
                             display: flex;
                             flex-direction: column;
                             align-items: center;
                             justify-content: center;
-                            gap: 8px;
+                            padding: 1rem;
+                            height: 100%;
+                            width: 100%;
+                            box-sizing: border-box;
                         }
                         .circle-container {
                             position: relative;
-                            width: var(--circle-size);
-                            height: var(--circle-size);
+                            flex: 1;
+                            width: 100%;
+                            max-width: calc(${this.config?.layout?.width || 1} * 50px);
+                            aspect-ratio: 1;
                         }
                         svg {
                             width: 100%;
                             height: 100%;
                             overflow: visible;
+                            display: block;
                         }
                         circle, .tick {
                             fill: none;
@@ -291,6 +293,11 @@ if (!customElements.get("mushroom-circle-card")) {
                             font-size: var(--body-font-size);
                             font-weight: var(--card-font-weight);
                             line-height: var(--body-line-height);
+                            margin-top: 0.5rem;
+                            text-align: center;
+                            overflow: hidden;
+                            text-overflow: ellipsis;
+                            width: 100%;
                         }
                     </style>
 
