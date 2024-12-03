@@ -89,21 +89,18 @@ if (!customElements.get("mushroom-circle-card")) {
         }
 
         _computeValue(stateObj) {
-            // Handle timer
             if (this.config.display_mode === 'time' && stateObj.entity_id.includes('timer')) {
                 const remaining = this._computeRemainingTime(stateObj);
                 const duration = this._timeToSeconds(stateObj.attributes.duration);
                 return duration ? ((duration - remaining) / duration) * 100 : 0;
             }
 
-            // Handle percentage and value modes
             const numericValue = parseFloat(stateObj.state);
             if (!isNaN(numericValue)) {
                 if (this.config.display_mode === 'value') {
                     const maxValue = parseFloat(this.config.max_value) || 100;
                     return Math.min(100, (numericValue / maxValue) * 100);
                 }
-                // For percentage mode, clamp value between 0 and 100
                 return Math.min(100, Math.max(0, numericValue));
             }
             return 0;
@@ -120,11 +117,9 @@ if (!customElements.get("mushroom-circle-card")) {
             const y = -radius * Math.cos(angle);
             const largeArcFlag = progress > 50 ? 1 : 0;
             
-            if (direction === 'clockwise') {
-                return `M 0,-${radius} A ${radius},${radius} 0 ${largeArcFlag},1 ${x},${y}`;
-            } else {
-                return `M 0,-${radius} A ${radius},${radius} 0 ${largeArcFlag},0 ${-x},${y}`;
-            }
+            return direction === 'clockwise' 
+                ? `M 0,-${radius} A ${radius},${radius} 0 ${largeArcFlag},1 ${x},${y}`
+                : `M 0,-${radius} A ${radius},${radius} 0 ${largeArcFlag},0 ${-x},${y}`;
         }
 
         _computeColor(stateObj, value) {
@@ -145,8 +140,7 @@ if (!customElements.get("mushroom-circle-card")) {
                 case 'time':
                     if (stateObj.entity_id.includes('timer')) {
                         if (this.config.guess_mode && stateObj.state === 'active' && stateObj.attributes.finishes_at) {
-                            const remaining = this._computeRemainingTime(stateObj);
-                            return this._formatTime(remaining);
+                            return this._formatTime(this._computeRemainingTime(stateObj));
                         }
                         return stateObj.attributes.remaining || "0:00:00";
                     }
@@ -215,7 +209,7 @@ if (!customElements.get("mushroom-circle-card")) {
 
             const value = this._computeValue(stateObj);
             const strokeWidth = this.config.stroke_width || 8;
-            const radius = 42 - (strokeWidth / 2);
+            const radius = 40 - (strokeWidth / 2);
             const progressPath = this._computeProgressPath(radius, value, this.config.direction);
             const color = this._computeColor(stateObj, value);
             const name = this.config.name || stateObj.attributes.friendly_name || this.config.entity;
@@ -225,7 +219,7 @@ if (!customElements.get("mushroom-circle-card")) {
                     <style>
                         ha-card {
                             box-sizing: border-box;
-                            padding: var(--spacing);
+                            padding: 8px;
                             display: flex;
                             flex-direction: column;
                             justify-content: center;
@@ -234,6 +228,7 @@ if (!customElements.get("mushroom-circle-card")) {
                             box-shadow: var(--ha-card-box-shadow, none);
                             width: ${this.config?.layout?.width ? this.config.layout.width * 50 + 'px' : 'auto'};
                             height: ${this.config?.layout?.height ? this.config.layout.height * 50 + 'px' : 'auto'};
+                            overflow: visible;
                         }
                         .container {
                             display: flex;
@@ -242,21 +237,22 @@ if (!customElements.get("mushroom-circle-card")) {
                             justify-content: center;
                             width: 100%;
                             height: 100%;
-                            min-height: 100px;
+                            min-height: 80px;
                         }
                         .circle-container {
                             position: relative;
-                            width: 100px;
-                            height: 100px;
-                            min-height: 100px;
+                            width: ${this.config.fill_container ? '100%' : '80px'};
+                            height: ${this.config.fill_container ? '100%' : '80px'};
                             display: flex;
                             align-items: center;
                             justify-content: center;
-                            margin: 0 auto;
                         }
                         svg {
                             width: 100%;
                             height: 100%;
+                            max-width: 100px;
+                            max-height: 100px;
+                            overflow: visible;
                         }
                         circle, .tick {
                             fill: none;
@@ -268,7 +264,6 @@ if (!customElements.get("mushroom-circle-card")) {
                             opacity: 0.2;
                         }
                         .progress-path {
-                            fill: none;
                             stroke: ${color};
                             stroke-width: ${strokeWidth};
                             stroke-linecap: round;
@@ -315,7 +310,7 @@ if (!customElements.get("mushroom-circle-card")) {
 
                     <div class="container">
                         <div class="circle-container">
-                            <svg viewBox="-50 -50 100 100">
+                            <svg viewBox="-50 -50 100 100" preserveAspectRatio="xMidYMid meet">
                                 <circle
                                     class="background"
                                     cx="0"
@@ -339,6 +334,7 @@ if (!customElements.get("mushroom-circle-card")) {
             `;
         }
     }
+    
     customElements.define("mushroom-circle-card", MushroomCircleCard);
 }
 
