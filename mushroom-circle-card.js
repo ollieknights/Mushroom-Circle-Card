@@ -1,3 +1,11 @@
+/*
+Mushroom Circle Card v1.2.1
+- setConfig error solved
+- Fixed circle progress direction (both start at 12 o'clock)
+- Improved progress arc rendering
+- Enhanced color handling
+*/
+
 class MushroomCircleCard extends HTMLElement {
     constructor() {
         super();
@@ -6,6 +14,23 @@ class MushroomCircleCard extends HTMLElement {
         this._lastStateChange = null;
         this._guessedDuration = null;
         this._updateTimer = null;
+    }
+
+    connectedCallback() {
+        this._updateTimer = setInterval(() => {
+            if (this._hass) this.render();
+        }, 1000);
+    }
+
+    disconnectedCallback() {
+        if (this._updateTimer) {
+            clearInterval(this._updateTimer);
+            this._updateTimer = null;
+        }
+    }
+
+    getCardSize() {
+        return this.config?.layout?.height || 1;
     }
 
     static getStubConfig() {
@@ -35,7 +60,148 @@ class MushroomCircleCard extends HTMLElement {
         };
     }
 
-    // ... (previous methods remain the same until render())
+    setConfig(config) {
+        if (!config.entity) {
+            throw new Error("Please define an entity");
+        }
+        this.config = {
+            ...MushroomCircleCard.getStubConfig(),
+            ...config
+        };
+    }
+
+    set hass(hass) {
+        this._hass = hass;
+        this.render();
+    }
+
+    _timeToSeconds(timeString) {
+        if (!timeString) return 0;
+        if (typeof timeString === 'number') return timeString;
+        const matches = timeString.match(/^(\d+):(\d{2}):(\d{2})/);
+        if (matches) {
+            const [_, hours, minutes, seconds] = matches;
+            return (parseInt(hours) * 3600) + (parseInt(minutes) * 60) + parseInt(seconds);
+        }
+        return 0;
+    }
+
+    _formatTime(seconds) {
+        const h = Math.floor(seconds / 3600);
+        const m = Math.floor((seconds % 3600) / 60);
+        const s = Math.floor(seconds % 60);
+        return `${h}:${m.toString().padStart(2,'0')}:${s.toString().padStart(2,'0')}`;
+    }
+
+    _computeRemainingTime(stateObj) {
+        if (this.config.guess_mode && stateObj.state === 'active' && stateObj.attributes.finishes_at) {
+            const finishTime = new Date(stateObj.attributes.finishes_at);
+            const now = new Date();
+            return Math.max(0, (finishTime - now) / 1000);
+        }
+        return this._timeToSeconds(stateObj.attributes.remaining);
+    }
+
+    _computeValue(stateObj) {
+        if (stateObj.entity_id.includes('timer')) {
+            const remaining = this._computeRemainingTime(stateObj);
+            const duration = this._timeToSeconds(stateObj.attributes.duration);
+            return duration ? ((duration - remaining) / duration) * 100 : 0;
+        }
+        return 0;
+    }
+
+    _computeProgressPath(radius, progress, direction) {
+        if (progress === 0) return '';
+        if (progress === 100) {
+            return `M 0,-${radius} A ${radius},${radius} 0 1,${direction === 'clockwise' ? '1' : '0'} 0.1,-${radius}`;
+        }
+        
+        const angle = (progress / 100) * 2 * Math.PI;
+        const x = radius * Math.sin(angle);
+        const y = -radius * Math.cos(angle);
+        const largeArcFlag = progress > 50 ? 1 : 0;
+        
+        if (direction === 'clockwise') {
+            return `M 0,-${radius} A ${radius},${radius} 0 ${largeArcFlag},1 ${x},${y}`;
+        } else {
+            return `M 0,-${radius} A ${radius},${radius} 0 ${largeArcFlag},0 ${-x},${y}`;
+        }
+    }
+
+    _computeColor(stateObj, value) {
+        if (this.config.ring_color) {
+            try {
+                const remaining = this._computeRemainingTime(stateObj);
+                const percentage = value;
+                const state = parseFloat(stateObj.state);
+                const duration = this._timeToSeconds(stateObj.attributes.duration);
+                
+                return Function('remaining', 'percentage', 'value', 'state', 
+                    `return ${this.config.ring_color}`
+                )(remaining, percentage, state, state);
+            } catch (e) {
+                console.error('Error computing color:', e);
+                return 'var(--primary-color)';
+            }
+        }
+
+        if (value <= 20) return 'var(--error-color)';
+        if (value <= 50) return 'var(--warning-color)';
+        return 'var(--success-color)';
+    }
+
+    _formatState(stateObj) {
+        if (stateObj.entity_id.includes('timer')) {
+            if (this.config.guess_mode && stateObj.state === 'active' && stateObj.attributes.finishes_at) {
+                const remaining = this._computeRemainingTime(stateObj);
+                return this._formatTime(remaining);
+            }
+            return stateObj.attributes.remaining || "0:00:00";
+        }
+
+        const value = parseFloat(stateObj.state);
+        if (!isNaN(value)) {
+            return stateObj.attributes.unit_of_measurement ? 
+                `${value}${stateObj.attributes.unit_of_measurement}` : 
+                value.toString();
+        }
+
+        return stateObj.state;
+    }
+
+    _generateTicks(radius) {
+        if (!this.config.show_ticks) return '';
+        
+        const tickCount = 60;
+        const ticks = [];
+        const isInside = this.config.tick_position === 'inside';
+        const tickOffset = isInside ? -8 : 8;
+        
+        for (let i = 0; i < tickCount; i++) {
+            const angle = (i * 360 / tickCount) * (Math.PI / 180);
+            const isMainTick = i % 5 === 0;
+            const tickLength = isMainTick ? 8 : 5;
+            
+            const baseRadius = radius + tickOffset;
+            const x1 = baseRadius * Math.sin(angle);
+            const y1 = -baseRadius * Math.cos(angle);
+            const x2 = (baseRadius + (isInside ? -tickLength : tickLength)) * Math.sin(angle);
+            const y2 = -(baseRadius + (isInside ? -tickLength : tickLength)) * Math.cos(angle);
+            
+            ticks.push(`
+                <line 
+                    x1="${x1}" 
+                    y1="${y1}" 
+                    x2="${x2}" 
+                    y2="${y2}"
+                    class="tick ${isMainTick ? 'major' : ''}"
+                />
+            `);
+        }
+        
+        return ticks.join('');
+    }
 
     render() {
         if (!this._hass || !this.config) return;
@@ -99,7 +265,63 @@ class MushroomCircleCard extends HTMLElement {
                         justify-content: center;
                         margin: 0 auto;
                     }
-                    /* ... (rest of styles remain the same) ... */
+                    svg {
+                        width: 100%;
+                        height: 100%;
+                    }
+                    circle, .tick {
+                        fill: none;
+                        stroke-width: ${strokeWidth};
+                        stroke-linecap: round;
+                    }
+                    .background {
+                        stroke: var(--disabled-text-color);
+                        opacity: 0.2;
+                    }
+                    .progress-path {
+                        fill: none;
+                        stroke: ${color};
+                        stroke-width: ${strokeWidth};
+                        stroke-linecap: round;
+                        transition: all 0.3s ease-in-out;
+                    }
+                    .tick {
+                        stroke: var(--disabled-text-color);
+                        opacity: 0.3;
+                        stroke-width: 1px;
+                    }
+                    .tick.major {
+                        stroke-width: 2px;
+                        opacity: 0.4;
+                    }
+                    .content {
+                        position: absolute;
+                        display: flex;
+                        flex-direction: column;
+                        align-items: center;
+                        justify-content: center;
+                        width: 100%;
+                        height: 100%;
+                        text-align: center;
+                    }
+                    ha-icon {
+                        --mdc-icon-size: ${this.config.icon_size || '24px'};
+                        color: ${color};
+                    }
+                    .info {
+                        color: var(--primary-text-color);
+                        font-size: var(--primary-font-size);
+                        font-weight: var(--card-font-weight);
+                        line-height: var(--card-line-height);
+                        margin: 4px 0;
+                    }
+                    .name {
+                        color: var(--secondary-text-color);
+                        font-size: var(--body-font-size);
+                        font-weight: var(--card-font-weight);
+                        line-height: var(--body-line-height);
+                        margin-top: 4px;
+                    }
                 </style>
 
                 <div class="container">
