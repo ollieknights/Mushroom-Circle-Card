@@ -1,10 +1,3 @@
-/*
-Mushroom Circle Card v1.1.19
-- Fixed circle progress direction (both start at 12 o'clock)
-- Improved progress arc rendering
-- Enhanced color handling
-*/
-
 class MushroomCircleCard extends HTMLElement {
     constructor() {
         super();
@@ -43,7 +36,8 @@ class MushroomCircleCard extends HTMLElement {
             direction: "clockwise",
             stroke_width: 8,
             hide_name: false,
-            display_mode: "both",
+            display_mode: "percentage",
+            max_value: 100,
             icon_size: "24px",
             layout: {
                 width: 1,
@@ -100,10 +94,19 @@ class MushroomCircleCard extends HTMLElement {
     }
 
     _computeValue(stateObj) {
-        if (stateObj.entity_id.includes('timer')) {
+        if (this.config.display_mode === 'time' && stateObj.entity_id.includes('timer')) {
             const remaining = this._computeRemainingTime(stateObj);
             const duration = this._timeToSeconds(stateObj.attributes.duration);
             return duration ? ((duration - remaining) / duration) * 100 : 0;
+        }
+
+        const numericValue = parseFloat(stateObj.state);
+        if (!isNaN(numericValue)) {
+            if (this.config.display_mode === 'value') {
+                const maxValue = this.config.max_value || 100;
+                return (numericValue / maxValue) * 100;
+            }
+            return numericValue;
         }
         return 0;
     }
@@ -149,21 +152,27 @@ class MushroomCircleCard extends HTMLElement {
     }
 
     _formatState(stateObj) {
-        if (stateObj.entity_id.includes('timer')) {
-            if (this.config.guess_mode && stateObj.state === 'active' && stateObj.attributes.finishes_at) {
-                const remaining = this._computeRemainingTime(stateObj);
-                return this._formatTime(remaining);
-            }
-            return stateObj.attributes.remaining || "0:00:00";
-        }
+        switch (this.config.display_mode) {
+            case 'time':
+                if (stateObj.entity_id.includes('timer')) {
+                    if (this.config.guess_mode && stateObj.state === 'active' && stateObj.attributes.finishes_at) {
+                        const remaining = this._computeRemainingTime(stateObj);
+                        return this._formatTime(remaining);
+                    }
+                    return stateObj.attributes.remaining || "0:00:00";
+                }
+                break;
 
-        const value = parseFloat(stateObj.state);
-        if (!isNaN(value)) {
-            return stateObj.attributes.unit_of_measurement ? 
-                `${value}${stateObj.attributes.unit_of_measurement}` : 
-                value.toString();
-        }
+            case 'percentage':
+                const value = parseFloat(stateObj.state);
+                return !isNaN(value) ? `${Math.round(value)}%` : stateObj.state;
 
+            case 'value':
+                const numValue = parseFloat(stateObj.state);
+                return !isNaN(numValue) ? 
+                    `${numValue}${stateObj.attributes.unit_of_measurement || ''}` : 
+                    stateObj.state;
+        }
         return stateObj.state;
     }
 
