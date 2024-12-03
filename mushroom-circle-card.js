@@ -24,20 +24,15 @@ if (!customElements.get("mushroom-circle-card")) {
             this.config = {
                 type: "custom:mushroom-circle-card",
                 entity: "",
-                name: "",
                 icon: "mdi:circle",
                 show_ticks: false,
                 tick_position: "inside",
                 direction: "clockwise",
-                stroke_width: 8,
-                hide_name: false,
-                layout: { width: 1, height: 1 },
+                stroke_width: 6,
                 guess_mode: false,
+                layout: { width: 2, height: 2 },
                 ...config
             };
-
-            const size = Math.max(this.config?.layout?.width || 1, this.config?.layout?.height || 1) * 50;
-            this.style.setProperty('--card-size', size);
         }
 
         set hass(hass) {
@@ -120,12 +115,12 @@ if (!customElements.get("mushroom-circle-card")) {
             const tickCount = 60;
             const ticks = [];
             const isInside = this.config.tick_position === 'inside';
-            const tickOffset = isInside ? -4 : 4;
+            const tickOffset = isInside ? -3 : 3;
             
             for (let i = 0; i < tickCount; i++) {
                 const angle = (i * 360 / tickCount) * (Math.PI / 180);
                 const isMainTick = i % 5 === 0;
-                const tickLength = isMainTick ? 4 : 2;
+                const tickLength = isMainTick ? 3 : 2;
                 
                 const baseRadius = radius + tickOffset;
                 const x1 = baseRadius * Math.sin(angle);
@@ -133,15 +128,8 @@ if (!customElements.get("mushroom-circle-card")) {
                 const x2 = (baseRadius + (isInside ? -tickLength : tickLength)) * Math.sin(angle);
                 const y2 = -(baseRadius + (isInside ? -tickLength : tickLength)) * Math.cos(angle);
                 
-                ticks.push(`
-                    <line 
-                        x1="${x1}" 
-                        y1="${y1}" 
-                        x2="${x2}" 
-                        y2="${y2}"
-                        class="tick ${isMainTick ? 'major' : ''}"
-                    />
-                `);
+                ticks.push(`<line x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}" 
+                    class="tick ${isMainTick ? 'major' : ''}" />`);
             }
             
             return ticks.join('');
@@ -152,121 +140,91 @@ if (!customElements.get("mushroom-circle-card")) {
 
             const stateObj = this._hass.states[this.config.entity];
             if (!stateObj) {
-                this.shadowRoot.innerHTML = `
-                    <ha-card>Entity not found: ${this.config.entity}</ha-card>
-                `;
+                this.shadowRoot.innerHTML = `<ha-card>Entity not found: ${this.config.entity}</ha-card>`;
                 return;
             }
 
             const value = this._computeValue(stateObj);
-            const strokeWidth = this.config.stroke_width || 8;
-            const radius = 40 - (strokeWidth / 2);
-            const progressPath = this._computeProgressPath(radius, value, this.config.direction);
+            const CARD_SIZE = 100;
+            const PADDING = 8;
+            const CONTENT_SIZE = CARD_SIZE - (PADDING * 2);
+            const RADIUS = 35;
+            const progressPath = this._computeProgressPath(RADIUS, value, this.config.direction);
             const color = this._computeColor(stateObj);
             const name = this.config.name || stateObj.attributes.friendly_name || this.config.entity;
 
             this.shadowRoot.innerHTML = `
+                <style>
+                    ha-card {
+                        width: ${CARD_SIZE}px;
+                        height: ${CARD_SIZE}px;
+                        padding: ${PADDING}px;
+                        box-sizing: border-box;
+                        background: var(--ha-card-background, var(--card-background-color, white));
+                        border-radius: var(--ha-card-border-radius, 12px);
+                        box-shadow: var(--ha-card-box-shadow, none);
+                    }
+                    .container {
+                        width: ${CONTENT_SIZE}px;
+                        height: ${CONTENT_SIZE}px;
+                        position: relative;
+                    }
+                    svg {
+                        width: 100%;
+                        height: 100%;
+                        display: block;
+                        transform: rotate(${this.config.direction === 'counter-clockwise' ? '180deg' : '0'});
+                    }
+                    .content {
+                        position: absolute;
+                        inset: 0;
+                        display: flex;
+                        flex-direction: column;
+                        align-items: center;
+                        justify-content: center;
+                    }
+                    ha-icon {
+                        --mdc-icon-size: 24px;
+                        color: ${color};
+                        margin-bottom: 4px;
+                    }
+                    .info {
+                        font-size: 14px;
+                        line-height: 1;
+                        color: var(--primary-text-color);
+                    }
+                    .name {
+                        font-size: 12px;
+                        line-height: 1;
+                        color: var(--secondary-text-color);
+                        opacity: 0.7;
+                        margin-top: 4px;
+                    }
+                    .tick {
+                        stroke: var(--disabled-text-color);
+                        opacity: 0.3;
+                        stroke-width: 1px;
+                    }
+                    .tick.major {
+                        stroke-width: 1.5px;
+                        opacity: 0.4;
+                    }
+                </style>
                 <ha-card>
-                    <style>
-                        :host {
-                            --spacing: 12px;
-                            --icon-size: calc(var(--card-size) * 0.4);
-                            --font-size: calc(var(--card-size) * 0.2);
-                        }
-                        ha-card {
-                            box-sizing: border-box;
-                            background: none;
-                            box-shadow: none;
-                            border-radius: var(--ha-card-border-radius, 12px);
-                            height: calc(var(--card-size) * 1px);
-                            position: relative;
-                            text-align: center;
-                        }
-                        .container {
-                            height: 100%;
-                            display: flex;
-                            align-items: center;
-                            justify-content: center;
-                            flex-direction: column;
-                            padding: var(--spacing);
-                            box-sizing: border-box;
-                        }
-                        .circle-container {
-                            position: relative;
-                            width: calc(100% - var(--spacing) * 2);
-                            height: calc(100% - var(--spacing) * 2);
-                            display: flex;
-                            align-items: center;
-                            justify-content: center;
-                        }
-                        svg {
-                            width: 100%;
-                            height: 100%;
-                            transform: rotate(${this.config.direction === 'counter-clockwise' ? '180deg' : '0'});
-                        }
-                        circle, .tick {
-                            fill: none;
-                            stroke-width: ${strokeWidth};
-                            stroke-linecap: round;
-                        }
-                        .background {
-                            stroke: var(--disabled-text-color);
-                            opacity: 0.2;
-                        }
-                        .progress-path {
-                            stroke: ${color};
-                            transition: all 0.3s ease-in-out;
-                        }
-                        .tick {
-                            stroke: var(--disabled-text-color);
-                            opacity: 0.3;
-                            stroke-width: 1px;
-                        }
-                        .tick.major {
-                            stroke-width: 2px;
-                            opacity: 0.4;
-                        }
-                        .content {
-                            position: absolute;
-                            display: flex;
-                            flex-direction: column;
-                            align-items: center;
-                            justify-content: center;
-                            width: 100%;
-                            height: 100%;
-                            text-align: center;
-                            pointer-events: none;
-                        }
-                        ha-icon {
-                            --mdc-icon-size: var(--icon-size);
-                            color: ${color};
-                        }
-                        .info {
-                            color: var(--primary-text-color);
-                            font-size: var(--font-size);
-                            line-height: 1.2;
-                            margin-top: 4px;
-                        }
-                        .name {
-                            color: var(--secondary-text-color);
-                            font-size: calc(var(--font-size) * 0.7);
-                            line-height: 1;
-                            opacity: 0.7;
-                            margin-top: 4px;
-                        }
-                    </style>
                     <div class="container">
-                        <div class="circle-container">
-                            <svg viewBox="-50 -50 100 100">
-                                <circle class="background" cx="0" cy="0" r="${radius}" />
-                                ${this._generateTicks(radius)}
-                                <path class="progress-path" d="${progressPath}" />
-                            </svg>
-                            <div class="content">
-                                ${this.config.icon ? `<ha-icon icon="${this.config.icon}"></ha-icon>` : ''}
-                                <div class="info">${this._formatState(stateObj)}</div>
-                                ${!this.config.hide_name ? `<div class="name">${name}</div>` : ''}
-                            </div>
+                        <svg viewBox="-50 -50 100 100">
+                            <circle class="background" cx="0" cy="0" r="${RADIUS}" 
+                                   fill="none" stroke="var(--disabled-text-color)" 
+                                   stroke-width="6" opacity="0.2"/>
+                            ${this._generateTicks(RADIUS)}
+                            <path d="${progressPath}" fill="none" 
+                                  stroke="${color}" stroke-width="6" 
+                                  stroke-linecap="round"/>
+                        </svg>
+                        <div class="content">
+                            ${this.config.icon ? `<ha-icon icon="${this.config.icon}"></ha-icon>` : ''}
+                            <div class="info">${this._formatState(stateObj)}</div>
+                            ${!this.config.hide_name ? `<div class="name">${name}</div>` : ''}
                         </div>
                     </div>
                 </ha-card>
