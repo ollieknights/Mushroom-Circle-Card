@@ -1,7 +1,8 @@
 /*
 Mushroom Circle Card v1.0.18
 - Fixed counter-clockwise direction to start at 12 o'clock
-- Fixed conditional color based on remaining time
+- Fixed conditional color based on remaining time/percentage/state
+- Enhanced time-based conditional coloring using seconds
 - Maintained working clockwise behavior
 */
 
@@ -104,7 +105,7 @@ class MushroomCircleCard extends HTMLElement {
             const remaining = this._computeRemainingTime(stateObj);
             const duration = this._timeToSeconds(stateObj.attributes.duration);
             const progress = duration ? ((duration - remaining) / duration) * 100 : 0;
-            return progress;
+            return this.config.direction === "counter-clockwise" ? 100 - progress : progress;
         }
         return 0;
     }
@@ -113,7 +114,12 @@ class MushroomCircleCard extends HTMLElement {
         if (this.config.ring_color) {
             try {
                 const remaining = this._computeRemainingTime(stateObj);
-                return Function('remaining', 'value', `return ${this.config.ring_color}`)(remaining, value);
+                const percentage = value;
+                const state = parseFloat(stateObj.state);
+                
+                return Function('remaining', 'percentage', 'value', 'state', 
+                    `return ${this.config.ring_color}`
+                )(remaining, percentage, state, state);
             } catch (e) {
                 return 'var(--primary-color)';
             }
@@ -311,7 +317,7 @@ class MushroomCircleCard extends HTMLElement {
                                 cy="50"
                                 r="${radius}"
                                 stroke-dasharray="${circumference}"
-                                stroke-dashoffset="${this.config.direction === "counter-clockwise" ? -strokeDashoffset : strokeDashoffset}"
+                                stroke-dashoffset="${strokeDashoffset}"
                                 transform="${this.config.direction === "counter-clockwise" ? 'scale(-1, 1) translate(-100, 0)' : ''}"
                             />
                         </svg>
