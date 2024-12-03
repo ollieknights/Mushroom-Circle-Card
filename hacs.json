@@ -1,8 +1,7 @@
 {
-    "name": "Mushroom Circle Timer Card",
-    "render_readme": true,
-    "filename": "mushroom-circle-card.js",
-    "content_in_root": true,
-    "homeassistant": "2023.11.0",
-    "plugin_type": "dashboard"
+  "name": "Mushroom Style Circle Value Card",
+  "render_readme": true,
+  "filename": "mushroom-circle-value-card.js",
+  "content_in_root": false,
+  "homeassistant": "2023.8.0"
 }
