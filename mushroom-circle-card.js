@@ -1,9 +1,8 @@
 /*
-Mushroom Circle Card v1.0.18
-- Fixed counter-clockwise direction to start at 12 o'clock
-- Fixed conditional color based on remaining time/percentage/state
-- Enhanced time-based conditional coloring using seconds
-- Maintained working clockwise behavior
+Mushroom Circle Card v1.1.19
+- Fixed circle progress direction (both start at 12 o'clock)
+- Improved progress arc rendering
+- Enhanced color handling
 */
 
 class MushroomCircleCard extends HTMLElement {
@@ -41,7 +40,7 @@ class MushroomCircleCard extends HTMLElement {
             icon: "mdi:circle",
             show_ticks: false,
             tick_position: "inside",
-            direction: "counter-clockwise",
+            direction: "clockwise",
             stroke_width: 8,
             hide_name: false,
             display_mode: "both",
@@ -104,10 +103,27 @@ class MushroomCircleCard extends HTMLElement {
         if (stateObj.entity_id.includes('timer')) {
             const remaining = this._computeRemainingTime(stateObj);
             const duration = this._timeToSeconds(stateObj.attributes.duration);
-            const progress = duration ? ((duration - remaining) / duration) * 100 : 0;
-            return this.config.direction === "counter-clockwise" ? 100 - progress : progress;
+            return duration ? ((duration - remaining) / duration) * 100 : 0;
         }
         return 0;
+    }
+
+    _computeProgressPath(radius, progress, direction) {
+        if (progress === 0) return '';
+        if (progress === 100) {
+            return `M 0,-${radius} A ${radius},${radius} 0 1,${direction === 'clockwise' ? '1' : '0'} 0.1,-${radius}`;
+        }
+        
+        const angle = (progress / 100) * 2 * Math.PI;
+        const x = radius * Math.sin(angle);
+        const y = -radius * Math.cos(angle);
+        const largeArcFlag = progress > 50 ? 1 : 0;
+        
+        if (direction === 'clockwise') {
+            return `M 0,-${radius} A ${radius},${radius} 0 ${largeArcFlag},1 ${x},${y}`;
+        } else {
+            return `M 0,-${radius} A ${radius},${radius} 0 ${largeArcFlag},0 ${-x},${y}`;
+        }
     }
 
     _computeColor(stateObj, value) {
@@ -116,17 +132,15 @@ class MushroomCircleCard extends HTMLElement {
                 const remaining = this._computeRemainingTime(stateObj);
                 const percentage = value;
                 const state = parseFloat(stateObj.state);
+                const duration = this._timeToSeconds(stateObj.attributes.duration);
                 
                 return Function('remaining', 'percentage', 'value', 'state', 
                     `return ${this.config.ring_color}`
                 )(remaining, percentage, state, state);
             } catch (e) {
+                console.error('Error computing color:', e);
                 return 'var(--primary-color)';
             }
-        }
-
-        if (stateObj.attributes.rgb_color) {
-            return `rgb(${stateObj.attributes.rgb_color.join(',')})`;
         }
 
         if (value <= 20) return 'var(--error-color)';
@@ -153,7 +167,7 @@ class MushroomCircleCard extends HTMLElement {
         return stateObj.state;
     }
 
-    _generateTicks(radius, size) {
+    _generateTicks(radius) {
         if (!this.config.show_ticks) return '';
         
         const tickCount = 60;
@@ -167,10 +181,10 @@ class MushroomCircleCard extends HTMLElement {
             const tickLength = isMainTick ? 8 : 5;
             
             const baseRadius = radius + tickOffset;
-            const x1 = size/2 + baseRadius * Math.cos(angle);
-            const y1 = size/2 + baseRadius * Math.sin(angle);
-            const x2 = x1 + (isInside ? -tickLength : tickLength) * Math.cos(angle);
-            const y2 = y1 + (isInside ? -tickLength : tickLength) * Math.sin(angle);
+            const x1 = baseRadius * Math.sin(angle);
+            const y1 = -baseRadius * Math.cos(angle);
+            const x2 = (baseRadius + (isInside ? -tickLength : tickLength)) * Math.sin(angle);
+            const y2 = -(baseRadius + (isInside ? -tickLength : tickLength)) * Math.cos(angle);
             
             ticks.push(`
                 <line 
@@ -204,9 +218,7 @@ class MushroomCircleCard extends HTMLElement {
         const value = this._computeValue(stateObj);
         const strokeWidth = this.config.stroke_width || 8;
         const radius = 42 - (strokeWidth / 2);
-        const circumference = 2 * Math.PI * radius;
-        const progress = value / 100;
-        const strokeDashoffset = circumference * (1 - progress);
+        const progressPath = this._computeProgressPath(radius, value, this.config.direction);
         const color = this._computeColor(stateObj, value);
         const name = this.config.name || stateObj.attributes.friendly_name || this.config.entity;
 
@@ -247,7 +259,6 @@ class MushroomCircleCard extends HTMLElement {
                     svg {
                         width: 100%;
                         height: 100%;
-                        transform: rotate(-90deg);
                     }
                     circle, .tick {
                         fill: none;
@@ -258,9 +269,12 @@ class MushroomCircleCard extends HTMLElement {
                         stroke: var(--disabled-text-color);
                         opacity: 0.2;
                     }
-                    .progress {
-                        transition: stroke-dashoffset 0.3s ease-in-out;
+                    .progress-path {
+                        fill: none;
                         stroke: ${color};
+                        stroke-width: ${strokeWidth};
+                        stroke-linecap: round;
+                        transition: all 0.3s ease-in-out;
                     }
                     .tick {
                         stroke: var(--disabled-text-color);
@@ -303,22 +317,17 @@ class MushroomCircleCard extends HTMLElement {
 
                 <div class="container">
                     <div class="circle-container">
-                        <svg viewBox="0 0 100 100">
+                        <svg viewBox="-50 -50 100 100">
                             <circle
                                 class="background"
-                                cx="50"
-                                cy="50"
+                                cx="0"
+                                cy="0"
                                 r="${radius}"
                             />
-                            ${this._generateTicks(radius, 100)}
-                            <circle
-                                class="progress"
-                                cx="50"
-                                cy="50"
-                                r="${radius}"
-                                stroke-dasharray="${circumference}"
-                                stroke-dashoffset="${strokeDashoffset}"
-                                transform="${this.config.direction === "counter-clockwise" ? 'scale(-1, 1) translate(-100, 0)' : ''}"
+                            ${this._generateTicks(radius)}
+                            <path
+                                class="progress-path"
+                                d="${progressPath}"
                             />
                         </svg>
                         <div class="content">
