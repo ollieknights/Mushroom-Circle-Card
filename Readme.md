@@ -1,4 +1,4 @@
-```markdown
+
 # Mushroom Circle Timer Card
 
 A customizable circular progress card with Mushroom design compatibility for Home Assistant.
