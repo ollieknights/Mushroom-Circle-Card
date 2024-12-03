@@ -30,14 +30,14 @@ class MushroomCircleCard extends HTMLElement {
             show_ticks: false,
             tick_position: "inside",
             direction: "counter-clockwise",
-            size: 150,
             stroke_width: 8,
             hide_name: false,
             display_mode: "both",
-            ring_color: "",
             icon_size: "24px",
-            decimal_places: 1,
+            layout: "vertical",
             fill_container: false,
+            primary_info: "state",
+            secondary_info: "name",
             duration: null,
             guess_mode: false
         };
@@ -76,121 +76,63 @@ class MushroomCircleCard extends HTMLElement {
         return `${h}:${m.toString().padStart(2,'0')}:${s.toString().padStart(2,'0')}`;
     }
 
-    _guessTimeRemaining(stateObj) {
-        if (stateObj.attributes.finishes_at) {
+    _computeRemainingTime(stateObj) {
+        if (this.config.guess_mode && stateObj.state === 'active' && stateObj.attributes.finishes_at) {
             const finishTime = new Date(stateObj.attributes.finishes_at);
             const now = new Date();
             return Math.max(0, (finishTime - now) / 1000);
         }
-        return 0;
+        return this._timeToSeconds(stateObj.attributes.remaining);
     }
 
-    _computeDuration(config, stateObj) {
-        if (typeof config.duration === 'number') return config.duration;
+    _computeValue(stateObj) {
+        if (stateObj.entity_id.includes('timer')) {
+            const remaining = this._computeRemainingTime(stateObj);
+            const duration = this._timeToSeconds(stateObj.attributes.duration);
+            
+            const progress = duration ? ((duration - remaining) / duration) * 100 : 0;
+            return this.config.direction === "counter-clockwise" ? progress : 100 - progress;
+        }
 
-        if (config.duration) {
-            if (config.duration.attribute) {
-                const value = stateObj.attributes[config.duration.attribute];
-                return this._parseDurationValue(value, config.duration.units);
-            }
+        const value = parseFloat(stateObj.state);
+        return isNaN(value) ? 0 : Math.min(Math.max(value, 0), 100);
+    }
 
-            if (config.duration.entity) {
-                const durationEntity = this._hass.states[config.duration.entity];
-                if (!durationEntity) return 100;
-                
-                const value = config.duration.attribute ? 
-                    durationEntity.attributes[config.duration.attribute] : 
-                    durationEntity.state;
-                    
-                return this._parseDurationValue(value, config.duration.units);
+    _computeColor(stateObj, value) {
+        if (this.config.ring_color) {
+            try {
+                return Function('state', 'value', `return ${this.config.ring_color}`)(stateObj, value);
+            } catch (e) {
+                return 'var(--primary-color)';
             }
         }
 
-        return 100;
-    }
-
-    _parseDurationValue(value, units = 'duration') {
-        switch(units) {
-            case 'seconds':
-                return parseFloat(value);
-            case 'minutes':
-                return parseFloat(value) * 60;
-            case 'hours':
-                return parseFloat(value) * 3600;
-            case 'duration':
-                return this._timeToSeconds(value);
-            default:
-                return parseFloat(value);
+        if (stateObj.attributes.rgb_color) {
+            return `rgb(${stateObj.attributes.rgb_color.join(',')})`;
         }
+
+        if (value <= 20) return 'var(--error-color)';
+        if (value <= 50) return 'var(--warning-color)';
+        return 'var(--success-color)';
     }
 
     _formatState(stateObj) {
         if (stateObj.entity_id.includes('timer')) {
             if (this.config.guess_mode && stateObj.state === 'active' && stateObj.attributes.finishes_at) {
-                const finishTime = new Date(stateObj.attributes.finishes_at);
-                const now = new Date();
-                const remaining = Math.max(0, (finishTime - now) / 1000);
+                const remaining = this._computeRemainingTime(stateObj);
                 return this._formatTime(remaining);
             }
             return stateObj.attributes.remaining || "0:00:00";
         }
 
-        if (stateObj.attributes.unit_of_measurement === '%' || 
-            stateObj.entity_id.includes('battery')) {
-            const value = parseFloat(stateObj.state);
-            return !isNaN(value) ? `${Math.round(value)}%` : stateObj.state;
-        }
-
         const value = parseFloat(stateObj.state);
         if (!isNaN(value)) {
-            const decimals = this.config.decimal_places || 1;
-            return value.toFixed(decimals);
+            return stateObj.attributes.unit_of_measurement ? 
+                `${value}${stateObj.attributes.unit_of_measurement}` : 
+                value.toString();
         }
 
         return stateObj.state;
-    }
-
-    _computeValue(stateObj) {
-        if (stateObj.entity_id.includes('timer')) {
-            let remaining, duration;
-            
-            if (this.config.guess_mode && stateObj.state === 'active' && stateObj.attributes.finishes_at) {
-                const finishTime = new Date(stateObj.attributes.finishes_at);
-                const now = new Date();
-                remaining = Math.max(0, (finishTime - now) / 1000);
-                duration = this._timeToSeconds(stateObj.attributes.duration);
-            } else {
-                remaining = this._timeToSeconds(stateObj.attributes.remaining);
-                duration = this._timeToSeconds(stateObj.attributes.duration);
-            }
-            
-            return duration ? ((duration - remaining) / duration) * 100 : 0;
-        }
-        
-        const value = parseFloat(stateObj.state);
-        const duration = this._computeDuration(this.config, stateObj);
-        
-        if (this.config.duration) {
-            return (value / duration) * 100;
-        }
-        
-        return isNaN(value) ? 0 : Math.min(Math.max(value, 0), 100);
-    }
-
-    _computeColor(value) {
-        if (this.config.ring_color) {
-            try {
-                return Function('states', 'value', 
-                    `return ${this.config.ring_color}`
-                )(this._hass.states, value);
-            } catch (e) {
-                return 'var(--primary-color)';
-            }
-        }
-        
-        if (value <= 20) return 'var(--error-color)';
-        if (value <= 50) return 'var(--warning-color)';
-        return 'var(--success-color)';
     }
 
     _generateTicks(radius, size) {
@@ -242,41 +184,51 @@ class MushroomCircleCard extends HTMLElement {
         }
 
         const value = this._computeValue(stateObj);
-        const baseSize = this.config.size || 150;
         const strokeWidth = this.config.stroke_width || 8;
-        const radius = (baseSize / 2) - (strokeWidth * 1.5);
+        const radius = 42 - (strokeWidth / 2); // Mushroom card default size
         const circumference = 2 * Math.PI * radius;
         const progress = value / 100;
-        const isClockwise = this.config.direction === "clockwise";
         const strokeDashoffset = circumference * (1 - progress);
-        const color = this.config.stroke_color || this._computeColor(value);
+        const color = this._computeColor(stateObj, value);
         const name = this.config.name || stateObj.attributes.friendly_name || this.config.entity;
 
         this.shadowRoot.innerHTML = `
             <ha-card>
                 <style>
                     ha-card {
-                        height: 100%;
-                        padding: 16px;
                         box-sizing: border-box;
+                        height: 100%;
+                        padding: var(--spacing);
+                        display: flex;
+                        flex-direction: column;
+                        justify-content: center;
+                        background: var(--ha-card-background, var(--card-background-color, white));
+                        border-radius: var(--ha-card-border-radius, 12px);
+                        box-shadow: var(--ha-card-box-shadow, none);
                     }
                     .container {
-                        position: relative;
-                        width: 100%;
                         display: flex;
                         flex-direction: column;
                         align-items: center;
+                        justify-content: center;
+                        width: 100%;
+                        height: 100%;
+                        min-height: 100px;
                     }
                     .circle-container {
                         position: relative;
-                        width: ${this.config.fill_container ? '100%' : `${baseSize}px`};
-                        height: auto;
-                        aspect-ratio: 1;
+                        width: 100px;
+                        height: 100px;
+                        min-height: 100px;
+                        display: flex;
+                        align-items: center;
+                        justify-content: center;
+                        margin: 0 auto;
                     }
                     svg {
                         width: 100%;
                         height: 100%;
-                        transform: rotate(${isClockwise ? '-90' : '90'}deg);
+                        transform: rotate(-90deg);
                     }
                     circle, .tick {
                         fill: none;
@@ -300,74 +252,62 @@ class MushroomCircleCard extends HTMLElement {
                         stroke-width: 2px;
                         opacity: 0.4;
                     }
-                    .center-content {
+                    .content {
                         position: absolute;
-                        top: 50%;
-                        left: 50%;
-                        transform: translate(-50%, -50%);
-                        text-align: center;
                         display: flex;
                         flex-direction: column;
                         align-items: center;
                         justify-content: center;
                         width: 100%;
-                        gap: 4px;
+                        height: 100%;
+                        text-align: center;
                     }
                     ha-icon {
-                        width: ${this.config.icon_size || '24px'};
-                        height: ${this.config.icon_size || '24px'};
-                        color: ${color};
-                        display: flex;
                         --mdc-icon-size: ${this.config.icon_size || '24px'};
+                        color: ${color};
                     }
-                    .state {
-                        font-size: ${this.config.display_mode === "both" ? "14px" : "22px"};
-                        font-weight: bold;
+                    .info {
+                        color: var(--primary-text-color);
+                        font-size: var(--primary-font-size);
+                        font-weight: var(--card-font-weight);
+                        line-height: var(--card-line-height);
+                        margin: 4px 0;
                     }
                     .name {
-                        font-size: 16px;
-                        font-weight: 500;
-                        margin-top: 8px;
-                        opacity: 0.7;
+                        color: var(--secondary-text-color);
+                        font-size: var(--body-font-size);
+                        font-weight: var(--card-font-weight);
+                        line-height: var(--body-line-height);
+                        margin-top: 4px;
                     }
                 </style>
 
                 <div class="container">
                     <div class="circle-container">
-                        <svg viewBox="0 0 ${baseSize} ${baseSize}">
+                        <svg viewBox="0 0 100 100">
                             <circle
                                 class="background"
-                                cx="${baseSize/2}"
-                                cy="${baseSize/2}"
+                                cx="50"
+                                cy="50"
                                 r="${radius}"
                             />
-
-                            ${this._generateTicks(radius, baseSize)}
-
+                            ${this._generateTicks(radius, 100)}
                             <circle
                                 class="progress"
-                                cx="${baseSize/2}"
-                                cy="${baseSize/2}"
+                                cx="50"
+                                cy="50"
                                 r="${radius}"
                                 stroke-dasharray="${circumference}"
                                 stroke-dashoffset="${strokeDashoffset}"
-                                transform="${isClockwise ? `scale(1,-1) translate(0,-${baseSize})` : ''}"
+                                transform="${this.config.direction === "counter-clockwise" ? 'scale(-1, 1) translate(-100, 0)' : ''}"
                             />
                         </svg>
-
-                        <div class="center-content">
-                            ${this.config.display_mode !== "state" ? `
-                                <ha-icon icon="${this.config.icon}"></ha-icon>
-                            ` : ''}
-                            ${this.config.display_mode !== "icon" ? `
-                                <div class="state">${this._formatState(stateObj)}</div>
-                            ` : ''}
+                        <div class="content">
+                            ${this.config.icon ? `<ha-icon icon="${this.config.icon}"></ha-icon>` : ''}
+                            <div class="info">${this._formatState(stateObj)}</div>
                         </div>
                     </div>
-
-                    ${!this.config.hide_name ? `
-                        <div class="name">${name}</div>
-                    ` : ''}
+                    ${!this.config.hide_name ? `<div class="name">${name}</div>` : ''}
                 </div>
             </ha-card>
         `;
@@ -379,6 +319,6 @@ customElements.define("mushroom-circle-card", MushroomCircleCard);
 window.customCards = window.customCards || [];
 window.customCards.push({
     type: "mushroom-circle-card",
-    name: "Mushroom Circle Card", 
+    name: "Mushroom Circle Card",
     description: "A circular progress card with Mushroom styling"
 });
