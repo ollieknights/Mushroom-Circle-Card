@@ -1,3 +1,15 @@
+/*
+Mushroom Circle Card v1.0.16
+A circular progress card with Mushroom styling for Home Assistant
+Features:
+- Timer display with countdown
+- Configurable rotation direction
+- Theme-aware styling
+- Responsive layout
+- Tick marks support
+- Layout grid compatibility
+*/
+
 class MushroomCircleCard extends HTMLElement {
     constructor() {
         super();
@@ -21,6 +33,10 @@ class MushroomCircleCard extends HTMLElement {
         }
     }
 
+    getCardSize() {
+        return 1;
+    }
+
     static getStubConfig() {
         return {
             type: "custom:mushroom-circle-card",
@@ -34,7 +50,10 @@ class MushroomCircleCard extends HTMLElement {
             hide_name: false,
             display_mode: "both",
             icon_size: "24px",
-            layout: "vertical",
+            layout: {
+                width: 1,
+                height: 1
+            },
             fill_container: false,
             primary_info: "state",
             secondary_info: "name",
@@ -91,7 +110,7 @@ class MushroomCircleCard extends HTMLElement {
             const duration = this._timeToSeconds(stateObj.attributes.duration);
             
             const progress = duration ? ((duration - remaining) / duration) * 100 : 0;
-            return this.config.direction === "counter-clockwise" ? progress : 100 - progress;
+            return this.config.direction === "clockwise" ? progress : 100 - progress;
         }
 
         const value = parseFloat(stateObj.state);
@@ -185,7 +204,7 @@ class MushroomCircleCard extends HTMLElement {
 
         const value = this._computeValue(stateObj);
         const strokeWidth = this.config.stroke_width || 8;
-        const radius = 42 - (strokeWidth / 2); // Mushroom card default size
+        const radius = 42 - (strokeWidth / 2);
         const circumference = 2 * Math.PI * radius;
         const progress = value / 100;
         const strokeDashoffset = circumference * (1 - progress);
@@ -205,6 +224,7 @@ class MushroomCircleCard extends HTMLElement {
                         background: var(--ha-card-background, var(--card-background-color, white));
                         border-radius: var(--ha-card-border-radius, 12px);
                         box-shadow: var(--ha-card-box-shadow, none);
+                        width: ${this.config?.layout?.width ? '100%' : 'auto'};
                     }
                     .container {
                         display: flex;
@@ -212,7 +232,7 @@ class MushroomCircleCard extends HTMLElement {
                         align-items: center;
                         justify-content: center;
                         width: 100%;
-                        height: 100%;
+                        height: ${this.config?.layout?.height ? '100%' : 'auto'};
                         min-height: 100px;
                     }
                     .circle-container {
