@@ -1,3 +1,4 @@
+
 if (!customElements.get("mushroom-circle-card")) {
     class MushroomCircleCard extends HTMLElement {
         constructor() {
@@ -211,25 +212,32 @@ if (!customElements.get("mushroom-circle-card")) {
             this.shadowRoot.innerHTML = `
                 <ha-card>
                     <style>
+                        :host {
+                            --circle-size: ${Math.min(this.config?.layout?.width || 1, this.config?.layout?.height || 1) * 50}px;
+                        }
                         ha-card {
                             padding: 8px;
                             width: ${this.config?.layout?.width ? this.config.layout.width * 50 + 'px' : '100px'};
                             height: ${this.config?.layout?.height ? this.config.layout.height * 50 + 'px' : '100px'};
+                            display: flex;
+                            align-items: center;
+                            justify-content: center;
                         }
                         .container {
+                            width: calc(100% - 16px);
+                            height: calc(100% - 16px);
                             display: flex;
                             flex-direction: column;
                             align-items: center;
                             justify-content: center;
-                            height: 100%;
+                            gap: 8px;
                         }
                         .circle-container {
                             position: relative;
-                            width: min(100%, calc(100vh - 16px));
-                            aspect-ratio: 1;
+                            width: var(--circle-size);
+                            height: var(--circle-size);
                         }
                         svg {
-                            display: block;
                             width: 100%;
                             height: 100%;
                             overflow: visible;
@@ -283,7 +291,6 @@ if (!customElements.get("mushroom-circle-card")) {
                             font-size: var(--body-font-size);
                             font-weight: var(--card-font-weight);
                             line-height: var(--body-line-height);
-                            margin-top: 4px;
                         }
                     </style>
 
@@ -300,7 +307,6 @@ if (!customElements.get("mushroom-circle-card")) {
                                 <path
                                     class="progress-path"
                                     d="${progressPath}"
-                                    class="progress-path"
                                 />
                             </svg>
                             <div class="content">
