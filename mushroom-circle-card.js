@@ -97,11 +97,15 @@ if (!customElements.get("mushroom-circle-card")) {
 
             const numericValue = parseFloat(stateObj.state);
             if (!isNaN(numericValue)) {
-                if (this.config.display_mode === 'value') {
-                    const maxValue = this.config.max_value || 100;
-                    return (numericValue / maxValue) * 100;
+                switch(this.config.display_mode) {
+                    case 'value':
+                        const maxValue = this.config.max_value || 100;
+                        return (numericValue / maxValue) * 100;
+                    case 'percentage':
+                        return numericValue;
+                    default:
+                        return numericValue;
                 }
-                return numericValue;
             }
             return 0;
         }
