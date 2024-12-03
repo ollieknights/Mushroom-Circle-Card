@@ -209,7 +209,7 @@ if (!customElements.get("mushroom-circle-card")) {
 
             const value = this._computeValue(stateObj);
             const strokeWidth = this.config.stroke_width || 8;
-            const radius = 40 - (strokeWidth / 2);
+            const radius = 50 - (strokeWidth / 2);
             const progressPath = this._computeProgressPath(radius, value, this.config.direction);
             const color = this._computeColor(stateObj, value);
             const name = this.config.name || stateObj.attributes.friendly_name || this.config.entity;
@@ -219,16 +219,15 @@ if (!customElements.get("mushroom-circle-card")) {
                     <style>
                         ha-card {
                             box-sizing: border-box;
-                            padding: 8px;
+                            padding: 12px;
                             display: flex;
                             flex-direction: column;
                             justify-content: center;
                             background: var(--ha-card-background, var(--card-background-color, white));
                             border-radius: var(--ha-card-border-radius, 12px);
                             box-shadow: var(--ha-card-box-shadow, none);
-                            width: ${this.config?.layout?.width ? this.config.layout.width * 50 + 'px' : 'auto'};
-                            height: ${this.config?.layout?.height ? this.config.layout.height * 50 + 'px' : 'auto'};
-                            overflow: visible;
+                            width: ${this.config?.layout?.width ? this.config.layout.width * 50 + 'px' : '200px'};
+                            height: ${this.config?.layout?.height ? this.config.layout.height * 50 + 'px' : '200px'};
                         }
                         .container {
                             display: flex;
@@ -237,21 +236,16 @@ if (!customElements.get("mushroom-circle-card")) {
                             justify-content: center;
                             width: 100%;
                             height: 100%;
-                            min-height: 80px;
                         }
                         .circle-container {
                             position: relative;
-                            width: ${this.config.fill_container ? '100%' : '80px'};
-                            height: ${this.config.fill_container ? '100%' : '80px'};
-                            display: flex;
-                            align-items: center;
-                            justify-content: center;
+                            width: 100%;
+                            height: 100%;
+                            aspect-ratio: 1;
                         }
                         svg {
                             width: 100%;
                             height: 100%;
-                            max-width: 100px;
-                            max-height: 100px;
                             overflow: visible;
                         }
                         circle, .tick {
@@ -310,7 +304,7 @@ if (!customElements.get("mushroom-circle-card")) {
 
                     <div class="container">
                         <div class="circle-container">
-                            <svg viewBox="-50 -50 100 100" preserveAspectRatio="xMidYMid meet">
+                            <svg viewBox="-60 -60 120 120" preserveAspectRatio="xMidYMid meet">
                                 <circle
                                     class="background"
                                     cx="0"
