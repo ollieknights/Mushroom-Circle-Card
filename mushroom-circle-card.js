@@ -1,8 +1,8 @@
 /*
-Mushroom Circle Card v1.0.17
-- Fixed clockwise/counter-clockwise rotation (both start at 12 o'clock)
-- Added layout width/height support
-- Fixed timer progress tracking
+Mushroom Circle Card v1.0.18
+- Fixed counter-clockwise direction to start at 12 o'clock
+- Fixed conditional color based on remaining time
+- Maintained working clockwise behavior
 */
 
 class MushroomCircleCard extends HTMLElement {
@@ -112,7 +112,8 @@ class MushroomCircleCard extends HTMLElement {
     _computeColor(stateObj, value) {
         if (this.config.ring_color) {
             try {
-                return Function('state', 'value', `return ${this.config.ring_color}`)(stateObj, value);
+                const remaining = this._computeRemainingTime(stateObj);
+                return Function('remaining', 'value', `return ${this.config.ring_color}`)(remaining, value);
             } catch (e) {
                 return 'var(--primary-color)';
             }
@@ -240,7 +241,7 @@ class MushroomCircleCard extends HTMLElement {
                     svg {
                         width: 100%;
                         height: 100%;
-                        transform: rotate(-90deg) ${this.config.direction === "counter-clockwise" ? 'scale(-1, 1)' : ''};
+                        transform: rotate(-90deg);
                     }
                     circle, .tick {
                         fill: none;
@@ -310,7 +311,8 @@ class MushroomCircleCard extends HTMLElement {
                                 cy="50"
                                 r="${radius}"
                                 stroke-dasharray="${circumference}"
-                                stroke-dashoffset="${strokeDashoffset}"
+                                stroke-dashoffset="${this.config.direction === "counter-clockwise" ? -strokeDashoffset : strokeDashoffset}"
+                                transform="${this.config.direction === "counter-clockwise" ? 'scale(-1, 1) translate(-100, 0)' : ''}"
                             />
                         </svg>
                         <div class="content">
