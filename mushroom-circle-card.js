@@ -145,7 +145,7 @@ if (!customElements.get("mushroom-circle-card")) {
             for (let i = 0; i < tickCount; i++) {
                 const angle = (i * 360 / tickCount) * (Math.PI / 180);
                 const isMainTick = i % 5 === 0;
-                const tickLength = isMainTick ? 4 : 2;
+                const tickLength = isMainTick ? 3 : 2;
                 
                 const baseRadius = radius + tickOffset;
                 const x1 = baseRadius * Math.sin(angle);
@@ -171,7 +171,7 @@ if (!customElements.get("mushroom-circle-card")) {
 
             const value = this._computeValue(stateObj);
             const strokeWidth = this.config.stroke_width || 8;
-            const FIXED_RADIUS = 35;
+            const FIXED_RADIUS = 25;
             const radius = FIXED_RADIUS;
             const progressPath = this._computeProgressPath(radius, value, this.config.direction);
             const color = this._computeColor(stateObj);
@@ -180,8 +180,8 @@ if (!customElements.get("mushroom-circle-card")) {
             this.shadowRoot.innerHTML = `
                 <style>
                     :host {
-                        --card-width: ${this.config?.layout?.width ? this.config.layout.width * 50 : 100}px;
-                        --card-height: ${this.config?.layout?.height ? this.config.layout.height * 50 : 100}px;
+                        --card-width: ${this.config?.layout?.width ? this.config.layout.width * 50 : 50}px;
+                        --card-height: ${this.config?.layout?.height ? this.config.layout.height * 50 : 50}px;
                     }
                     ha-card {
                         position: relative;
@@ -210,8 +210,8 @@ if (!customElements.get("mushroom-circle-card")) {
                         justify-content: center;
                     }
                     svg {
-                        width: 100%;
-                        height: 100%;
+                        width: 90%;
+                        height: 90%;
                         display: block;
                         transform: rotate(${this.config.direction === 'counter-clockwise' ? '180deg' : '0'});
                         overflow: visible;
@@ -253,7 +253,7 @@ if (!customElements.get("mushroom-circle-card")) {
                         margin-bottom: 4px;
                     }
                     .info {
-                        font-size: 14px;
+                        font-size: 12px;
                         line-height: 1;
                         color: var(--primary-text-color);
                     }
